@@ -1,219 +1,221 @@
-import { useState, useEffect, useCallback } from "react";
-import TerminalText from "../components/TerminalText";
+import { useEffect, useState, type CSSProperties } from "react";
+import { Link } from "react-router-dom";
+import Navbar from "../components/Navbar";
+import ProjectArt from "../components/ProjectArt";
+import ArrowIcon from "../components/ArrowIcon";
+import { projects } from "../data/projects";
 
-const bootLines = [
-  "VAULT-TEC INDUSTRIES (TM) TERMLINK PROTOCOL",
-  "ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM",
-  "COPYRIGHT 2077 ROBCO INDUSTRIES",
-  "",
-  "> INITIALIZING PERSONAL TERMINAL...",
-  "> LOADING USER PROFILE...",
-  "> DECRYPTION STATUS: COMPLETE",
-  "> WELCOME, VAULT DWELLER.",
-  "",
-];
+// Save a photo as src/assets/portrait.(png|jpg|jpeg|webp) and it is picked up
+// automatically. PNG/WebP are treated as transparent cutouts (closest to the
+// design); JPGs can't be transparent, so they get a soft vignette instead.
+const [portraitPath, portraitSrc] =
+  Object.entries(
+    import.meta.glob<string>("../assets/portrait.{png,jpg,jpeg,webp}", {
+      eager: true,
+      import: "default",
+    }),
+  )[0] ?? [];
+const portraitIsCutout = !/\.jpe?g$/i.test(portraitPath ?? "");
 
-const Home = () => {
-  const alreadyBooted = sessionStorage.getItem("pip-booted") === "true";
-  const [bootComplete, setBoot] = useState(alreadyBooted);
-  const [visibleLines, setVisibleLines] = useState(
-    alreadyBooted ? bootLines.length : 0,
-  );
+const headline = ["Building", "products that", "perform", "and inspire"];
+
+const featured = projects
+  .filter((p) => p.status !== "side-project")
+  .slice(0, 4);
+
+const AUTOPLAY_MS = 5000;
+
+const FeaturedCarousel = () => {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  const go = (delta: number) =>
+    setIndex((i) => (i + delta + featured.length) % featured.length);
 
   useEffect(() => {
-    if (alreadyBooted) return;
-
-    if (visibleLines < bootLines.length) {
-      const timer = setTimeout(
-        () => setVisibleLines((v) => v + 1),
-        visibleLines === 0 ? 300 : 150 + Math.random() * 200,
-      );
-      return () => clearTimeout(timer);
-    } else {
-      const timer = setTimeout(() => {
-        setBoot(true);
-        sessionStorage.setItem("pip-booted", "true");
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [visibleLines, alreadyBooted]);
-
-  const noop = useCallback(() => {}, []);
+    if (paused) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = setTimeout(
+      () => setIndex((i) => (i + 1) % featured.length),
+      AUTOPLAY_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [index, paused]);
 
   return (
-    <div className="page-enter">
-      {/* Boot sequence */}
-      {!alreadyBooted && (
-        <div
-          className="mb-8"
-          style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}
-        >
-          {bootLines.slice(0, visibleLines).map((line, i) => (
-            <div
-              key={i}
-              className="boot-line"
-              style={{
-                animationDelay: `${i * 0.05}s`,
-                color: line.startsWith(">")
-                  ? "var(--pip-green)"
-                  : "var(--pip-green-dim)",
-                minHeight: "1.4em",
-              }}
+    <section
+      aria-roledescription="carousel"
+      aria-label="Featured work"
+      className="home-featured flex flex-col gap-5"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      <div className="home-card">
+        {featured.map((project, i) => {
+          const active = i === index;
+          return (
+            <article
+              key={project.name}
+              className="home-slide"
+              data-active={active}
+              inert={!active}
+              aria-roledescription="slide"
+              aria-label={`${i + 1} of ${featured.length}`}
             >
-              {line}
-            </div>
+              <ProjectArt
+                accent={project.accent}
+                className="absolute inset-0"
+              />
+              <Link
+                to="/projects"
+                className="home-slide-open"
+                aria-label={`View ${project.name}`}
+              >
+                <ArrowIcon direction="up-right" />
+              </Link>
+              <div className="home-slide-caption">
+                <span
+                  className="home-slide-index"
+                  style={{ color: project.accent }}
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <h2>{project.name}</h2>
+                <p>{project.tech.slice(0, 3).join(" · ")}</p>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          {featured.map((project, i) => (
+            <button
+              key={project.name}
+              type="button"
+              className="home-dot"
+              aria-label={`Show ${project.name}`}
+              aria-current={i === index}
+              onClick={() => setIndex(i)}
+            />
           ))}
         </div>
-      )}
-
-      {/* Main content after boot */}
-      {bootComplete && (
-        <div className="space-y-10">
-          {/* Hero section */}
-          <div className="space-y-4">
-            <h1
-              className="text-glow-strong"
-              style={{
-                fontFamily: "var(--font-terminal)",
-                fontSize: "clamp(2rem, 5vw, 3.5rem)",
-                letterSpacing: "4px",
-                lineHeight: 1.1,
-              }}
-            >
-              {alreadyBooted ? (
-                "MEINARD"
-              ) : (
-                <TerminalText
-                  text="MEINARD"
-                  speed={80}
-                  onComplete={noop}
-                  showCursor={false}
-                />
-              )}
-            </h1>
-            <p
-              className="text-glow"
-              style={{
-                fontFamily: "var(--font-terminal)",
-                fontSize: "clamp(1rem, 2.5vw, 1.6rem)",
-                color: "var(--pip-amber)",
-                letterSpacing: "3px",
-              }}
-            >
-              {alreadyBooted ? (
-                <span className="text-glow-amber">FULL-STACK DEVELOPER</span>
-              ) : (
-                <TerminalText
-                  text="FULL-STACK DEVELOPER"
-                  speed={35}
-                  delay={500}
-                  showCursor={false}
-                  className="text-glow-amber"
-                  onComplete={noop}
-                />
-              )}
-            </p>
-          </div>
-
-          <hr className="pip-divider" />
-
-          {/* Terminal-style intro */}
-          <div
-            className="space-y-3"
-            style={{ fontFamily: "var(--font-mono)", fontSize: "0.95rem" }}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="home-arrow"
+            aria-label="Previous project"
+            onClick={() => go(-1)}
           >
-            <div style={{ color: "var(--pip-green-dim)" }}>
-              <span style={{ color: "var(--pip-green)" }}>$</span> cat
-              welcome.txt
-            </div>
-            <div
-              className="pip-frame-inner p-5 space-y-3"
-              style={{ lineHeight: "1.7" }}
-            >
-              <p>
-                Welcome to my personal terminal. I'm a developer who builds
-                things for the web — from interactive frontends to robust
-                backend systems. I believe in clean code, thoughtful
-                architecture, and shipping things that actually work.
-              </p>
-              <p style={{ color: "var(--pip-green-dim)" }}>
-                Navigate using the tabs above to explore my S.P.E.C.I.A.L.
-                stats, quest log (projects), or tune into my radio frequency
-                (contact).
-              </p>
-            </div>
-          </div>
-
-          {/* Quick stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { label: "QUESTS COMPLETED", value: "15+", sub: "Projects" },
-              { label: "XP GAINED", value: "3+", sub: "Years Experience" },
-              { label: "PERKS UNLOCKED", value: "10+", sub: "Technologies" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="pip-frame-inner p-5 text-center hover:border-[var(--pip-green-dim)] transition-all duration-200"
-              >
-                <div
-                  className="text-glow-strong"
-                  style={{
-                    fontFamily: "var(--font-terminal)",
-                    fontSize: "2.5rem",
-                  }}
-                >
-                  {stat.value}
-                </div>
-                <div
-                  className="text-xs tracking-widest mt-1"
-                  style={{ color: "var(--pip-amber)" }}
-                >
-                  {stat.label}
-                </div>
-                <div
-                  className="text-xs mt-1"
-                  style={{ color: "var(--pip-green-dark)" }}
-                >
-                  {stat.sub}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Active quests teaser */}
-          <div>
-            <div
-              className="flex items-center gap-2 mb-3"
-              style={{
-                fontFamily: "var(--font-terminal)",
-                fontSize: "1.2rem",
-                letterSpacing: "2px",
-              }}
-            >
-              <span style={{ color: "var(--pip-amber)" }}>{">"}</span>
-              <span className="text-glow">CURRENT STATUS</span>
-            </div>
-            <div
-              className="pip-frame-inner p-4 space-y-2"
-              style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="status-online" />
-                <span>Available for new quests (open to work)</span>
-              </div>
-              <div style={{ color: "var(--pip-green-dim)" }}>
-                {">"} Specializing in MERN Stack (MongoDB, Express, React,
-                Node.js) + Prisma
-              </div>
-              <div style={{ color: "var(--pip-green-dim)" }}>
-                {">"} Always exploring the wasteland for new technologies
-              </div>
-            </div>
-          </div>
+            <ArrowIcon direction="left" />
+          </button>
+          <button
+            type="button"
+            className="home-arrow"
+            aria-label="Next project"
+            onClick={() => go(1)}
+          >
+            <ArrowIcon direction="right" />
+          </button>
         </div>
-      )}
-    </div>
+      </div>
+    </section>
   );
 };
+
+const silhouette = (
+  <>
+    <ellipse cx="200" cy="168" rx="76" ry="92" />
+    <path d="M166 236h68l10 112h-88z" />
+    <path d="M18 560c4-128 52-206 136-238 14 10 30 16 46 16s32-6 46-16c84 32 132 110 136 238z" />
+  </>
+);
+
+const Portrait = () => (
+  <div className="home-portrait">
+    {portraitSrc ? (
+      <div className="home-portrait-frame" data-cutout={portraitIsCutout}>
+        <img src={portraitSrc} alt="Meinard" />
+      </div>
+    ) : (
+      <svg
+        viewBox="0 0 400 560"
+        preserveAspectRatio="xMidYMax meet"
+        className="home-portrait-placeholder"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient
+            id="home-sil-fill"
+            gradientUnits="userSpaceOnUse"
+            x1="0"
+            y1="76"
+            x2="0"
+            y2="560"
+          >
+            <stop offset="0" stopColor="#2a2e2c" />
+            <stop offset="1" stopColor="#111312" />
+          </linearGradient>
+          <linearGradient id="home-sil-rim" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#2dd4a7" />
+            <stop offset="1" stopColor="#ff7a1a" />
+          </linearGradient>
+        </defs>
+        {/* Rim is drawn first so the fill covers its inner half */}
+        <g fill="none" stroke="url(#home-sil-rim)" strokeWidth="3">
+          {silhouette}
+        </g>
+        <g fill="url(#home-sil-fill)">{silhouette}</g>
+      </svg>
+    )}
+  </div>
+);
+
+const Home = () => (
+  <div className="home-hero">
+    <div className="home-backdrop" aria-hidden="true" />
+    <Navbar className="rise" />
+
+    <main className="home-body px-5 pb-8 sm:px-8 lg:px-12 lg:pb-12">
+      <div className="home-stage">
+        <Portrait />
+        <h1 className="home-headline">
+          {headline.map((line, i) => (
+            <span
+              key={line}
+              className="rise block"
+              style={{ "--i": i + 1 } as CSSProperties}
+            >
+              {line}
+            </span>
+          ))}
+        </h1>
+      </div>
+
+      <div className="home-aside">
+        <p className="home-intro rise" style={{ "--i": 2 } as CSSProperties}>
+          I'm Meinard, a full-stack developer building fast, thoughtful web
+          apps — from pixel-perfect interfaces to the APIs that power them.
+        </p>
+
+        <div className="rise" style={{ "--i": 4 } as CSSProperties}>
+          <FeaturedCarousel />
+        </div>
+
+        <Link
+          to="/contact"
+          className="site-cta rise"
+          style={{ "--i": 6 } as CSSProperties}
+        >
+          Let's talk
+          <span className="site-cta-dot" aria-hidden="true" />
+        </Link>
+      </div>
+    </main>
+  </div>
+);
 
 export default Home;
